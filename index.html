@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Makine Bulucu</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Makine Bul">
+    <meta name="theme-color" content="#007AFF"/>
+    <style>
+        body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f4f4f9; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; background: #fff; padding: 20px; min-height: 100vh; box-sizing: border-box; }
+        h1 { color: #444; text-align: center; margin-top: 10px; margin-bottom: 20px; }
+        input[type="text"] { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; box-sizing: border-box; }
+        .button-group { display: flex; gap: 10px; margin-bottom: 20px; }
+        button { flex-grow: 1; padding: 14px; background-color: #007AFF; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; -webkit-appearance: none; }
+        #qr-reader-button { background-color: #34C759; }
+        #result { margin-top: 20px; padding: 15px; background-color: #eef7ff; border-left: 5px solid #007AFF; min-height: 50px; font-size: 1.1em; word-wrap: break-word; border-radius: 4px; }
+        #qr-reader { width: 100%; margin-top: 20px; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; }
+        #qr-reader-button-stop { display: none; width: 100%; margin-top: 10px; background-color: #FF3B30; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Makine Bulucu</h1>
+        <input type="text" id="partNumberInput" placeholder="Parça Numarasýný Girin...">
+        <div class="button-group">
+            <button id="searchButton">Ara</button>
+            <button id="qr-reader-button">QR Kod Tara</button>
+        </div>
+        <div id="qr-reader"></div>
+        <button id="qr-reader-button-stop">Taramayý Durdur</button>
+        <div id="result">Uygulama hazýr.</div>
+    </div>
+
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => { navigator.serviceWorker.register('./sw.js'); });
+        }
+
+        const partData = [
+            // BURASI SÝZÝN VERÝLERÝNÝZÝN OLDUÐU KISIM. KODUNUZDAN ALINDI.
+            [62901,6327109809],[62908,6317330809],[62915,4212080809],[62919,4211764809],[62918,4210964807],[62907,6501363601],[62900,6414140609],[62915,4013586809],[62916,4220127809],[62922,4221193809],
+            [62917,4230092329],[62909,6397395809],[62908,4013698809],[62924,4014282801],[62906,6307215809],[62908,4014622807],[62913,6390190809],[62916,4220612801],[62907,6001649809],[62900,6317076809]
+            // ... listenizin geri kalan tüm satýrlarý burada olmalý ...
+        ];
+
+        const partNumberInput = document.getElementById('partNumberInput');
+        const searchButton = document.getElementById('searchButton');
+        const qrReaderButton = document.getElementById('qr-reader-button');
+        const qrStopButton = document.getElementById('qr-reader-button-stop');
+        const resultDiv = document.getElementById('result');
+        const qrReaderDiv = document.getElementById('qr-reader');
+        let html5QrCode = new Html5Qrcode("qr-reader");
+
+        function findMachineByPartNumber(partNumber) {
+            const trimmedPartNumber = partNumber.toString().trim();
+            if (!trimmedPartNumber) { resultDiv.textContent = 'Lütfen bir parça numarasý girin.'; return; }
+            const machines = partData.filter(row => row[1] && row[1].toString().trim() === trimmedPartNumber).map(row => row[0]);
+            if (machines.length > 0) {
+                resultDiv.innerHTML = `<strong>Parça No:</strong> ${trimmedPartNumber}<br><strong>Makineler:</strong> ${[...new Set(machines)].join(', ')}`;
+            } else {
+                resultDiv.textContent = `"${trimmedPartNumber}" için makine bulunamadý.`;
+            }
+        }
+
+        const startQRScanner = () => {
+            qrReaderDiv.style.display = 'block';
+            qrStopButton.style.display = 'block';
+            const config = { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 };
+            const qrCodeSuccessCallback = (decodedText, decodedResult) => {
+                partNumberInput.value = decodedText;
+                stopQRScanner();
+                findMachineByPartNumber(decodedText);
+            };
+            html5QrCode.start({ facingMode: "environment" }, config, qrCodeSuccessCallback);
+        };
+
+        const stopQRScanner = () => {
+            html5QrCode.stop().then(() => {
+                qrReaderDiv.style.display = 'none';
+                qrStopButton.style.display = 'none';
+            }).catch(err => console.log("Tarayýcý zaten durdurulmuþ olabilir."));
+        };
+
+        searchButton.addEventListener('click', () => findMachineByPartNumber(partNumberInput.value));
+        partNumberInput.addEventListener('keyup', (e) => { if (e.key === 'Enter') findMachineByPartNumber(partNumberInput.value); });
+        qrReaderButton.addEventListener('click', startQRScanner);
+        qrStopButton.addEventListener('click', stopQRScanner);
+    </script>
+</body>
+</html>
